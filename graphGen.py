@@ -10,6 +10,7 @@ import MySQLdb
 import logging
 import datetime as dt
 import matplotlib
+matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import matplotlib.dates as mtpDate
 import numpy as np
@@ -18,8 +19,6 @@ import locale
 from matplotlib.ticker import MaxNLocator
 
 logger = logging.getLogger('MerapiData')
-
-matplotlib.use('agg')
 
 try:
     locale.setlocale(locale.LC_ALL, 'id_ID.UTF-8')
