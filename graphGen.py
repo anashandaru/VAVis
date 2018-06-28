@@ -156,9 +156,19 @@ class Database:
 
     def fetchEnergi(self, start, end):
         query = r"""
-            SELECT *
-
+            SELECT DATE(eventdate) AS DATE, SUM(magnitude) AS VALUE 
+            FROM bulletin
+            WHERE eventdate >= '{start}'
+            AND eventdate <= '{end}'
+            AND (type = 'VTA' OR type = 'VTB' OR type = 'MP')
+            GROUP BY DATE(datetime)
             """
+        data = self.execute(query.format(
+            start=start.strftime('%Y-%m-%d %H:%M:%S'),
+            end=end.strftime('%Y-%m-%d %H:%M:%S')
+            ))
+        #return DataPacket(data, 'energi', 'PUSS', start, end)
+        return data
 
     def fetchRSAM(self, station, start, end):
         query = r"""
