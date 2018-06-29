@@ -97,6 +97,8 @@ class DataPacket:
         self.time = []
         self.start = start
         self.end = end
+	if not data:
+	    return
         for datum in data:
             self.value.append(datum['VALUE'])
             self.time.append(datum['TIME'])
@@ -132,6 +134,8 @@ class Database:
             return self.fetchGPS(station[0], station[1], start, end)
         elif self.parameter == 'doas':
             return self.fetchDOAS(start, end)
+	elif self.parameter == 'energi':
+	    return self.fetchEnergi(start, end)
         else:
             print 'parameter error'
 
@@ -156,19 +160,21 @@ class Database:
 
     def fetchEnergi(self, start, end):
         query = r"""
-            SELECT DATE(eventdate) AS DATE, SUM(magnitude) AS VALUE 
+            SELECT DATE(eventdate) AS TIME,
+	    SUM(POW(10, (11.8+POW(1.5,magnitude)))/POW(10,12)) 
+	    AS VALUE 
             FROM bulletin
             WHERE eventdate >= '{start}'
+	    AND magnitude IS NOT NULL
             AND eventdate <= '{end}'
             AND (type = 'VTA' OR type = 'VTB' OR type = 'MP')
-            GROUP BY DATE(datetime)
+	    GROUP BY DATE(eventdate);
             """
         data = self.execute(query.format(
             start=start.strftime('%Y-%m-%d %H:%M:%S'),
             end=end.strftime('%Y-%m-%d %H:%M:%S')
             ))
-        #return DataPacket(data, 'energi', 'PUSS', start, end)
-        return data
+        return DataPacket(data, 'energi', 'PUSS', start, end)
 
     def fetchRSAM(self, station, start, end):
         query = r"""
@@ -238,30 +244,30 @@ class Database:
 
     def fetchGpsRecord(self, station, start, end):
         query = r"""
-            SELECT DATE_FORMAT(DATE, "%Y-%m-%d") AS DATE,
+            SELECT DATE(DATE) AS TIME,
                 EAST,
                 NORTH,
                 UP
             FROM {station}
             WHERE DATE >= '{start}'
-            AND DATE <= '{end}'
+            AND DATE <= '{end}';
             """
         data = self.execute(query.format(
             station=station,
             start=start.strftime('%Y-%m-%d %H:%M:%S'),
             end=end.strftime('%Y-%m-%d %H:%M:%S')))
-        return data
+	return data
 
 
     def getGpsBaseline(self, dataA, dataB):
-        dfA = pd.DataFrame(list(dataA))
+        if not dataA or not dataB:
+	    return
+	dfA = pd.DataFrame(list(dataA))
         dfB = pd.DataFrame(list(dataB))
-        data = pd.merge(dfA, dfB, on='DATE', how='outer')
+	data = pd.merge(dfA, dfB, on='TIME', how='outer')
         data = data.dropna(axis=0, how='any')
-        data.columns = ['DATE', 'eA', 'nA', 'uA', 'eB', 'nB', 'uB']
-        data.loc[:, 'BASELN'] = np.sqrt((data.eA - data.eB)**2 +
-                                (data.nA - data.nB)**2 +
-                                (data.uA - data.uB)**2).loc[:]
+        data.columns = ['eA', 'nA', 'DATE', 'uA', 'eB', 'nB', 'uB']
+	data.loc[:, 'BASELN'] = np.sqrt((data.eA-data.eB)**2+(data.nA-data.nB)**2+(data.uA-data.uB)**2).loc[:]
         data = data.drop(['eA', 'nA', 'uA', 'eB', 'nB', 'uB'], axis=1)
         data['DATE'] = pd.to_datetime(data['DATE'])
         #data = data.set_index('DATE')
@@ -321,7 +327,6 @@ class ploter:
             # check 
             if(not not explosions):
                 if i == 0:
-                    pass
                     letusan = ax[i].axvline(explosions[0],linewidth=2, color='r',label='Letusan')
                 # Draw vertcaline explosion for every axes
                 for explosion in explosions:
@@ -332,7 +337,8 @@ class ploter:
                 ax[i].plot(data.time, data.value,'ko-', label = data.parameter)
                 # Draw RSAM Cumulative axis
                 axT = ax[i].twinx()  # instantiate a second axes that shares the same x-axis
-                axT.plot(data.time, data.getCumulative(),'ro-', label = 'kumulatif')
+                axT.plot(data.time, data.getCumulative(),'bo-', label = 'kumulatif')
+		axT.set_ylabel('kumulatif')
 
             elif data.parameter == 'doas':
                 ax[i].plot(data.time, data.value,'ko', label = data.parameter)
@@ -341,7 +347,14 @@ class ploter:
                 ax[i].plot(data.time, data.value,'ko-', label = data.parameter)
 
             elif data.parameter == 'seismisitas':
-                ax[i].bar(data.time, data.value, label = data.parameter)
+                ax[i].bar(data.time, data.value, color = 'k', label = data.station)
+
+	    elif data.parameter == 'energi':
+		ax[i].bar(data.time, data.value, color = 'k', label = data.parameter)
+		# Draw Cumulative axis
+		axT = ax[i].twinx()
+		axT.plot(data.time, data.getCumulative(),'bo-', label = 'kumulatif')
+		axT.set_ylabel('Kumulatif')
 
             ax[i].set_ylabel(data.station)
             ax[i].legend(loc=1)

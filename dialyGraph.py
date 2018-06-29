@@ -14,6 +14,7 @@ def dailyGraph(period = 'monthly'):
     dbSeismisitas = gg.Database('seismisitas')
     dbGps = gg.Database('gps')
     dbDoas = gg.Database('doas')
+    dbEnergi = gg.Database('energi')
 
     # Create RSAM graph and save it
     plotRsam = gg.ploter()
@@ -46,6 +47,12 @@ def dailyGraph(period = 'monthly'):
     dataDoas = dbDoas.fetch('BABA', start, end)
     plotDoas.append(dataDoas)
     plotDoas.generate('DOAS', period)
+
+    # Create Energi graph and save it
+    plotEnergi = gg.ploter()
+    dataEnergi = dbEnergi.fetch('PUSS', start, end)
+    plotEnergi.append(dataEnergi)
+    plotEnergi.generate('Energi', period)
 
 dailyGraph(period = 'weekly')
 dailyGraph(period = 'monthly')
